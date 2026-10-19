@@ -29,6 +29,28 @@ function Header() {
   );
 }
 
+function BookCover({ book, className = '' }) {
+  return (
+    <div className={`book-cover ${book.color} ${className}`}>
+      {book.image ? (
+        <>
+          <img
+            src={book.image}
+            alt={`${book.title} — ${book.author}`}
+            className="book-cover-img"
+            loading="lazy"
+          />
+          <div className="book-cover-scrim" aria-hidden="true" />
+        </>
+      ) : null}
+      <span className="cover-emoji">{book.emoji}</span>
+      <span className="cover-label">КНИЖНАЯ ПОЛКА</span>
+      <strong>{book.title}</strong>
+      <span className="cover-author">{book.author}</span>
+    </div>
+  );
+}
+
 function BookCard({ book }) {
   const { addToCart } = useCart();
   const [added, setAdded] = React.useState(false);
@@ -40,12 +62,7 @@ function BookCard({ book }) {
   };
   return (
     <article className="book-card">
-      <div className={`book-cover ${book.color}`}>
-        <span className="cover-emoji">{book.emoji}</span>
-        <span className="cover-label">КНИЖНАЯ ПОЛКА</span>
-        <strong>{book.title}</strong>
-        <span className="cover-author">{book.author}</span>
-      </div>
+      <BookCover book={book} />
       <div className="book-info">
         <span className="genre">{book.genre}</span>
         <h3>{book.title}</h3>
@@ -97,7 +114,13 @@ function Cart() {
           <section className="cart-items">
             {cart.map((item) => (
               <article className="cart-row" key={item.id}>
-                <div className={`mini-cover ${item.color}`}>{item.emoji}</div>
+                <div className={`mini-cover ${item.color}`}>
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} className="mini-cover-img" loading="lazy" />
+                  ) : (
+                    item.emoji
+                  )}
+                </div>
                 <div className="cart-book-info"><h3>{item.title}</h3><p>{item.author}</p><span>{money(item.price)} за шт.</span></div>
                 <div className="quantity"><button onClick={() => decreaseQuantity(item.id)} aria-label="Уменьшить количество">−</button><span>{item.quantity}</span><button onClick={() => addToCart(item)} aria-label="Увеличить количество">+</button></div>
                 <strong className="line-total">{money(item.price * item.quantity)}</strong>
