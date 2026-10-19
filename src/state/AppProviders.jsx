@@ -6,6 +6,63 @@ const AuthContext = createContext(null);
 
 const CART_STORAGE_KEY = 'app.cart';
 const THEME_STORAGE_KEY = 'app.theme';
+const USER_STORAGE_KEY = 'app.user';
+const memoryStorage = {};
+
+function isLocalStorageAvailable() {
+  try {
+    const testKey = '__storage_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const storageAvailable = typeof window !== 'undefined' && isLocalStorageAvailable();
+
+const safeStorage = {
+  getItem(key) {
+    try {
+      if (storageAvailable) return window.localStorage.getItem(key);
+      return Object.prototype.hasOwnProperty.call(memoryStorage, key) ? memoryStorage[key] : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    try {
+      if (storageAvailable) {
+        window.localStorage.setItem(key, value);
+      } else {
+        memoryStorage[key] = value;
+      }
+    } catch {
+      memoryStorage[key] = value;
+    }
+  },
+  removeItem(key) {
+    try {
+      if (storageAvailable) {
+        window.localStorage.removeItem(key);
+      } else {
+        delete memoryStorage[key];
+      }
+    } catch {
+      delete memoryStorage[key];
+    }
+  }
+};
+
+function safeParse(raw, fallback) {
+  if (raw == null) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
 
 function cartReducer(state, action) {
   switch (action.type) {
@@ -32,41 +89,41 @@ function cartReducer(state, action) {
 }
 
 function getInitialCart() {
-  try {
-    const saved = localStorage.getItem(CART_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
+  const raw = safeStorage.getItem(CART_STORAGE_KEY);
+  const parsed = safeParse(raw, []);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 function getInitialTheme() {
-  try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    return saved === 'dark' || saved === 'light' ? saved : 'light';
-  } catch {
-    return 'light';
-  }
+  const saved = safeStorage.getItem(THEME_STORAGE_KEY);
+  return saved === 'dark' || saved === 'light' ? saved : 'light';
+}
+
+function getInitialUser() {
+  const raw = safeStorage.getItem(USER_STORAGE_KEY);
+  return safeParse(raw, null);
 }
 
 export function AppProviders({ children }) {
   const [cart, dispatch] = useReducer(cartReducer, undefined, getInitialCart);
   const [theme, setTheme] = useState(getInitialTheme);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getInitialUser);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    } catch {
-    }
+    safeStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
-    } catch {
-    }
+    safeStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (user) {
+      safeStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    } else {
+      safeStorage.removeItem(USER_STORAGE_KEY);
+    }
+  }, [user]);
 
   const cartValue = useMemo(() => ({
     cart,
@@ -78,10 +135,16 @@ export function AppProviders({ children }) {
     totalPrice: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   }), [cart]);
 
+  const authValue = useMemo(() => ({
+    user,
+    login: (userData) => setUser(userData),
+    logout: () => setUser(null)
+  }), [user]);
+
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme: () => setTheme((t) => t === 'light' ? 'dark' : 'light') }}>
       <CartContext.Provider value={cartValue}>
-        <AuthContext.Provider value={{ user, login: (username) => setUser(username), logout: () => setUser(null) }}>
+        <AuthContext.Provider value={authValue}>
           {children}
         </AuthContext.Provider>
       </CartContext.Provider>
