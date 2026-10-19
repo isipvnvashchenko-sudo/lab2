@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useMemo, useReducer, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 
 const CartContext = createContext(null);
 const ThemeContext = createContext(null);
 const AuthContext = createContext(null);
+
+const CART_STORAGE_KEY = 'app.cart';
+const THEME_STORAGE_KEY = 'app.theme';
 
 function cartReducer(state, action) {
   switch (action.type) {
@@ -28,10 +31,42 @@ function cartReducer(state, action) {
   }
 }
 
+function getInitialCart() {
+  try {
+    const saved = localStorage.getItem(CART_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return saved === 'dark' || saved === 'light' ? saved : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
 export function AppProviders({ children }) {
-  const [cart, dispatch] = useReducer(cartReducer, []);
-  const [theme, setTheme] = useState('light');
+  const [cart, dispatch] = useReducer(cartReducer, undefined, getInitialCart);
+  const [theme, setTheme] = useState(getInitialTheme);
   const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch {
+    }
+  }, [cart]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+    }
+  }, [theme]);
 
   const cartValue = useMemo(() => ({
     cart,
